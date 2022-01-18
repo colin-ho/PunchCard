@@ -60,3 +60,4 @@ buck-out/
 /ios/Pods/
 
 .env
+/ios/GoogleService-Info.plist
