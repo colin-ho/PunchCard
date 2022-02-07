@@ -5,11 +5,11 @@ import React, { useContext } from 'react'
 import { Dimensions, TouchableOpacity, StyleSheet } from "react-native";
 import { Shadow } from 'react-native-shadow-2';
 import { Button } from "../components";
-import { AuthenticatedUserContext } from "../providers/AuthUserProvider";
+import { AuthenticatedUserContext, AuthenticatedUserContextInterface } from "../providers/AuthUserProvider";
 
 const screenWidth = Dimensions.get('window').width;
 export const LandingScreen =({navigation}:any)=>{
-    const {setNeedsLogin}:any = useContext(AuthenticatedUserContext)
+    const {setNeedsLogin} = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
     return(
         <Flex flexDirection="column"  justify="center" alignItems="center">
         <Image source={Images.landing} alt=" " mt="-100px" resizeMode="contain" w={screenWidth}/>
@@ -37,7 +37,7 @@ export const LandingScreen =({navigation}:any)=>{
             style={styles.borderlessButtonContainer}
             borderless
             title={'Go back to app'}
-            onPress={() => setNeedsLogin(false)}
+            onPress={() => setNeedsLogin&&setNeedsLogin(false)}
           />
         </Flex>
         

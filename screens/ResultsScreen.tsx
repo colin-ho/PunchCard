@@ -5,15 +5,21 @@ import Ionicons from 'react-native-vector-icons/Ionicons'
 import {Shadow} from 'react-native-shadow-2';
 import { Dimensions, TouchableOpacity } from 'react-native';
 import { debounce } from "lodash";
-import { BusinessContext } from '../providers/BusinessContextProvider';
+import { BusinessContext, BusinessContextInterface } from '../providers/BusinessContextProvider';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
+import { BrowseStackParamList } from './BrowseScreen';
 
 const stringSimilarity = require("string-similarity");
 const screenWidth = Dimensions.get('window').width;
 
-export const ResultsScreen = ({navigation,route}:any)=>{
-    const{address}:any = useContext(BusinessContext)
+type ResultsProps = NativeStackScreenProps<BrowseStackParamList, 'Results'>;
+
+
+export const ResultsScreen:React.FC<ResultsProps> = ({navigation,route})=>{
+    const{address} = useContext<BusinessContextInterface>(BusinessContext)
     const businesses = route.params.businesses;
-    const [filtered,setFiltered] = useState([])
+    const [filtered,setFiltered] = useState<FirebaseFirestoreTypes.DocumentData[]>([])
     const [search,setSearch] = useState(route.params.query)
     const [showSearch,setShowSearch] = useState(false);
     const [filter,setFilter] = useState('distance')
@@ -24,7 +30,7 @@ export const ResultsScreen = ({navigation,route}:any)=>{
             if(search.length === 0){
                 setFiltered(businesses);
             } else {
-                setFiltered(businesses.filter((business:any)=> 
+                setFiltered(businesses.filter((business:FirebaseFirestoreTypes.DocumentData)=> 
                 (business.businessName.toLowerCase().includes(search.toLowerCase()) || business.businessType.includes(search.toLowerCase())) || (stringSimilarity.compareTwoStrings(business.businessName.toLowerCase(), search.toLowerCase())>0.5 || stringSimilarity.compareTwoStrings(business.businessType, search.toLowerCase())>0.5)));
             }
       }
@@ -32,7 +38,7 @@ export const ResultsScreen = ({navigation,route}:any)=>{
 
     const delayedQuery = useCallback(debounce(updateQuery, 500), [search]);
 
-    const onChange = (e:any) => {
+    const onChange = (e:string) => {
         setSearch(e);
      };
 
@@ -67,20 +73,20 @@ export const ResultsScreen = ({navigation,route}:any)=>{
         </HStack>
         {filtered ? 
             <Box>
-              <FlatList initialNumToRender={5}mb="160px" showsVerticalScrollIndicator={false} data ={filter == "distance" ? filtered : [...filtered].sort((a:any, b:any) => (a.totalCustomers < b.totalCustomers) ? 1 : -1)} renderItem={({item})=>
+              <FlatList initialNumToRender={5}mb="160px" showsVerticalScrollIndicator={false} data ={filter == "distance" ? filtered : [...filtered].sort((a, b) => (a.totalCustomers < b.totalCustomers) ? 1 : -1)} renderItem={({item})=>
                 <TouchableOpacity activeOpacity={1} onPress={() => navigation.navigate('Shop',{business:item})}>
                   <ResultsItem  business={item} />
                 </TouchableOpacity>
                 
-             } keyExtractor={(item:any) => item.uid}/>
+             } keyExtractor={(item) => item.uid}/>
              </Box>
             :null}
-        <Searchbar showOverlay={showSearch} onChange={onChange} setShowOverlay={setShowSearch} search={search} setSearch={setSearch}/>
+        <Searchbar showOverlay={showSearch} onChange={onChange} setShowOverlay={setShowSearch} search={search}/>
     </SafeAreaView>
   );
 }
 
-function ResultsItem({business}:any){
+function ResultsItem({business}:FirebaseFirestoreTypes.DocumentData){
     return(
       <Box alignSelf="center" mt="10px" mb="20px" mx="20px" borderRadius="2xl" >
         <Shadow radius={20} distance={10} paintInside={false}  startColor="#0000000c">
@@ -92,7 +98,7 @@ function ResultsItem({business}:any){
               <HStack space="3" mb="5px">
               {business.totalCustomers > 0 ? 
               <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg="brand.100">
-                <Text fontSize="12px" color="black">Popular near you</Text>
+                <Text fontSize="12px" color="black">Popular</Text>
               </Flex>: null}
               <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg="brand.300">
                 <Text fontSize="12px" color="black">{business.businessType.charAt(0).toUpperCase() +  business.businessType.slice(1) }</Text>
@@ -106,8 +112,14 @@ function ResultsItem({business}:any){
       </Box>
     )
   }
+  interface SearchBarProps{
+    setShowOverlay: React.Dispatch<React.SetStateAction<boolean>>
+    showOverlay: boolean
+    search: string
+    onChange:(e: string) => void
+}
 
-  function Searchbar({setShowOverlay,showOverlay,search,onChange}:any){
+  function Searchbar({setShowOverlay,showOverlay,search,onChange}:SearchBarProps){
 
     return(
   

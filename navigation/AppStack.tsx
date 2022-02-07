@@ -3,22 +3,14 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { HomeScreen } from '../screens/HomeScreen';
 import {BrowseScreen} from '../screens/BrowseScreen';
 import {SubscriptionsScreen} from '../screens/SubscriptionsScreen';
-import AccountScreen from '../screens/AccountScreen';
+import {AccountScreen} from '../screens/AccountScreen';
 import AntDesign from 'react-native-vector-icons/AntDesign'
 import { FavoritesScreen } from '../screens/FavoritesScreen';
 import { BusinessContextProvider } from '../providers/BusinessContextProvider';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Entypo from 'react-native-vector-icons/Entypo';
 
-type RootStackParamList = {
-  Home: undefined;
-  Browse: undefined;
-  Favorites: undefined;
-  Subscriptions: undefined;
-  Account: undefined;
-};
-
-const Tab = createBottomTabNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator();
 
 export const AppStack = () => {
   

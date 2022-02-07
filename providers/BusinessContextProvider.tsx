@@ -10,7 +10,7 @@ const geofire = require('geofire-common');
 
 const hasPermissionIOS = async () => {
   const openSetting = () => {
-    Linking.openSettings().catch(() => {
+    Linking.openURL('app-settings:').catch(() => {
       Alert.alert('Unable to open settings');
     });
   };
@@ -21,7 +21,13 @@ const hasPermissionIOS = async () => {
   }
 
   if (status === 'denied') {
-    Alert.alert('Location permission denied');
+    Alert.alert(
+        `Allow PunchCard to determine your location in order to discover shops.`,
+        '',
+        [
+          { text: 'Go to Settings', onPress: openSetting },
+        ],
+      );
   }
 
   if (status === 'disabled') {
@@ -43,15 +49,24 @@ const hasLocationPermission = async () => {
   return hasPermission;
 };
 
-export const BusinessContext = createContext({});
-export const BusinessContextProvider = ({ children }:any) => {
-    const [location, setLocation] = useState<any>(null);
+export interface BusinessContextInterface {
+    businesses?:FirebaseFirestoreTypes.DocumentData[]
+    refreshing?:boolean
+    setRefreshing?:React.Dispatch<React.SetStateAction<boolean>>
+    address?:string
+    location?:Geolocation.GeoCoordinates | null
+}
+
+export const BusinessContext = createContext<BusinessContextInterface>({});
+
+export const BusinessContextProvider:React.FC<React.ReactNode> = ({ children }) => {
+    const [location, setLocation] = useState<Geolocation.GeoCoordinates | null>(null);
     const [address,setAddress] = useState<string>('');
-    const [businesses, setBusinesses] = useState<any>(null);
-    const [refreshing,setRefreshing] = useState(false);
+    const [businesses, setBusinesses] = useState<FirebaseFirestoreTypes.DocumentData[] >([]);
+    const [refreshing,setRefreshing] = useState<boolean>(false);
   
     const getStuff = ()=>{
-        const center = [location.latitude,location.longitude];
+        const center = [location?.latitude,location?.longitude];
         const radiusInM = 20 * 1000;
         const bounds = geofire.geohashQueryBounds(center, radiusInM);
         const promises = [];
@@ -100,7 +115,6 @@ export const BusinessContextProvider = ({ children }:any) => {
         Geolocation.getCurrentPosition(
           (position) => {
             setLocation(position.coords);
-            console.log(position)
             Geocoder.from({lat:position.coords.latitude,lng:position.coords.longitude}).then(json => {
               setAddress(json.results[0].address_components[0].long_name + " "+json.results[0].address_components[1].long_name)
               })
@@ -129,13 +143,13 @@ export const BusinessContextProvider = ({ children }:any) => {
         getStuff();
       }
       else{
-        setBusinesses(null);
+        setBusinesses([]);
       }
       setTimeout(function(){ setRefreshing(false); }, 2000);
     }, [location,refreshing])
 
   return (
-    <BusinessContext.Provider value={{ businesses,refreshing,setRefreshing,address }}>
+    <BusinessContext.Provider value={{ businesses,refreshing,setRefreshing,address,location }}>
       {children}
     </BusinessContext.Provider>
   );
