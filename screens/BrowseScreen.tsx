@@ -11,6 +11,7 @@ import { Shadow } from 'react-native-shadow-2';
 import { ResultsScreen } from './ResultsScreen';
 import { BusinessContext, BusinessContextInterface } from '../providers/BusinessContextProvider';
 import { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
+import CheckoutScreen from './CheckoutScreen';
 
 const screenWidth = Dimensions.get('window').width; 
 
@@ -19,6 +20,7 @@ export type BrowseStackParamList = {
     Results: {businesses:FirebaseFirestoreTypes.DocumentData[] | undefined,query:string};
     Shop: {business:FirebaseFirestoreTypes.DocumentData};
     Subscription: {subscription:FirebaseFirestoreTypes.DocumentData};
+    Checkout:{ subscription: FirebaseFirestoreTypes.DocumentData };
 };
 
 const Stack = createNativeStackNavigator<BrowseStackParamList>();
@@ -31,6 +33,7 @@ export const BrowseScreen = () => {
             <Stack.Screen name='Results' component={ResultsScreen} options={{ headerShown: false }} />
             <Stack.Screen name='Shop' component={ShopScreen} options={{ headerShown: false }} />
             <Stack.Screen name='Subscription' component={Subscription} options={{ headerShown: false }} />
+            <Stack.Screen name='Checkout' component={CheckoutScreen} options={{ headerShown: false }} />
         </Stack.Navigator>
     );
 };

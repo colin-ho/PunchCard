@@ -3,18 +3,21 @@ import { Alert, Dimensions, TouchableOpacity, View } from 'react-native'
 import DateTimePicker from '@react-native-community/datetimepicker';
 import axios from 'axios'
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { Input, Heading, Modal, Button, Box, Image, Flex, Text, VStack, HStack, TextArea, Icon, Spacer } from 'native-base';
+import { Input, Heading, Modal, Button, Box, Image, Flex, Text, VStack, HStack, TextArea, Icon, Spacer, Switch } from 'native-base';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AntDesign from 'react-native-vector-icons/AntDesign';
 import Ionicons from 'react-native-vector-icons/Ionicons'
 import { Shadow } from 'react-native-shadow-2';
 import Toast from 'react-native-toast-message';
 import { AuthenticatedUserContext, AuthenticatedUserContextInterface } from '../providers/AuthUserProvider';
-import { STRIPE_KEY } from '@env';
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 import { Fave } from '../utils/Fave';
 import { BusinessContext, BusinessContextInterface } from '../providers/BusinessContextProvider';
-import { useStripe } from '@stripe/stripe-react-native';
+import { CompositeScreenProps } from '@react-navigation/native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { BrowseStackParamList } from './BrowseScreen';
+import { HomeStackParamList } from './HomeScreen';
+import { SubscriptionsStackParamList } from './SubscriptionsScreen';
 
 function makeCode() {
     var result = '';
@@ -36,16 +39,25 @@ const showToast = () => {
 }
 const screenWidth = Dimensions.get('window').width;
 const geofire = require('geofire-common');
-export default function Subscription({ navigation, route }: any) {
-    const { user, displayName, setNeedsLogin, favorites, redeeming, subscribedTo, stripeCustomerId } = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
+
+type firstProps = CompositeScreenProps<
+    NativeStackScreenProps<BrowseStackParamList, 'Subscription'>,
+    NativeStackScreenProps<HomeStackParamList, 'Subscription'>
+>
+
+type secondProps = CompositeScreenProps<firstProps, NativeStackScreenProps<SubscriptionsStackParamList, 'Subscription'>>;
+
+export default function Subscription({ navigation, route }: secondProps) {
+    const { user, displayName, favorites, redeeming, subscribedTo, stripeCustomerId } = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
     const { location } = useContext<BusinessContextInterface>(BusinessContext);
     const [isPurchased, setIsPurchased] = useState(false)
     const [isRedeeming, setIsRedeeming] = useState<boolean | null>(null);
     const [requests, setRequests] = useState('');
-    const [date, setDate] = useState(new Date((new Date()).getTime() + 60000));
+    const [date, setDate] = useState(new Date());
     const [error, setError] = useState("");
     const [showCodeOverlay, setShowCodeOverlay] = useState(false);
     const [showRedOverlay, setShowRedOverlay] = useState(false);
+    const [showCancelOverlay, setShowCancelOverlay] = useState(false);
     const [code, setCode] = useState<number | null>(null);
     const [customerSide, setCustomerSide] = useState<FirebaseFirestoreTypes.DocumentData | undefined | null>(null);
     const [redeemedToday, setRedeemedToday] = useState<boolean | null>(null);
@@ -55,8 +67,8 @@ export default function Subscription({ navigation, route }: any) {
     const [open, setOpen] = useState(true);
     const [hours, setHours] = useState({ open: 0, close: 0 });
     const [outOfRange, setOutOfRange] = useState(false);
+    const [orderAhead, setOrderAhead] = useState(false)
     const subscription = route.params.subscription;
-    const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
     useEffect(() => {
         if (redeeming && redeeming.length > 0) {
@@ -98,7 +110,7 @@ export default function Subscription({ navigation, route }: any) {
             } else {
                 setIsPurchased(false);
                 setCustomerSide(null)
-            } 
+            }
         }
     }, [user, subscribedTo, subscription])
 
@@ -111,6 +123,7 @@ export default function Subscription({ navigation, route }: any) {
         businessListener = businessQuery.onSnapshot((snapshot: FirebaseFirestoreTypes.DocumentSnapshot) => {
             if (snapshot.exists) {
                 setDelay(snapshot.data()?.delay);
+                setDate(new Date((new Date()).getTime() + (parseInt(snapshot.data()?.delay)+10) * 60000))
                 let times = snapshot.data()?.times;
                 let hours = null;
                 const today = new Date()
@@ -149,61 +162,8 @@ export default function Subscription({ navigation, route }: any) {
         }
     }, [subscription, user, subscribedTo])
 
-    const openPaymentSheet = async () => {
-        const { error } = await presentPaymentSheet();
-
-        if (error) {
-            if(error.code==='Failed') Alert.alert(`Error: ${error.code}`, error.message);
-        } else {
-            Alert.alert('Success', 'Your order is confirmed!');
-        }
-    };
-
-    const addCustomer = async () => {
-
-        if (!user) {
-            setNeedsLogin && setNeedsLogin(true);
-        } else {
-            try {
-                setLoading(true);
-                const subCreateRes = await axios.post('https://lavalab.vercel.app/api/createSubscription', {
-                    stripeCustomerId: stripeCustomerId,
-                    priceId: subscription.stripePriceId,
-                    metadata:{
-                        customerId: user.uid,
-                        subscriptionId: subscription.id,
-                        name: displayName,
-                        title: subscription.title,
-                        price: subscription.price,
-                        business: subscription.businessName,
-                        businessId: subscription.businessId,
-                    }
-                })
-                const { clientSecret } = subCreateRes.data
-
-                const ephemeralData = await axios.post('https://lavalab.vercel.app/api/createEphemeral', {
-                    customerId: stripeCustomerId,
-                })
-
-                const { ephemeralKey } = ephemeralData.data
-
-                const { error } = await initPaymentSheet({
-                    customerId: stripeCustomerId,
-                    paymentIntentClientSecret: clientSecret,
-                    customerEphemeralKeySecret:ephemeralKey,
-                    merchantDisplayName: 'Example Inc.',
-                });
-                if (!error) {
-                    await openPaymentSheet()
-                    
-                } else throw error;
-
-            } catch (err) {
-                console.log(err)
-            }
-            setLoading(false);
-        }
-
+    const goToCheckout = async () => {
+        navigation.navigate('Checkout', { subscription: subscription })
     };
     const redeem = async () => {
 
@@ -227,14 +187,14 @@ export default function Subscription({ navigation, route }: any) {
         try {
             const subRef = firestore().collection('subscriptions').doc(subscription.id)
             const redemptionRef = firestore().collection('redemptions').doc();
-            const subscribedToRef = firestore().collection('subscribedTo').doc(subscribedTo?.filter((item)=>item.subscriptionId === subscription.id)[0].stripeSubscriptionId)
+            const subscribedToRef = firestore().collection('subscribedTo').doc(subscribedTo?.filter((item) => item.subscriptionId === subscription.id)[0].stripeSubscriptionId)
 
             const batch = firestore().batch();
             batch.update(subRef, { redemptionCount: firestore.FieldValue.increment(1) });
             batch.set(redemptionRef, {
-                subscriptionId: subscription.id, requests: requests, collected: false, confirmed: false, collectBy: date, redeemedBy: displayName, redeemedById: user?.uid,
-                redeemedAt: firestore.FieldValue.serverTimestamp(), businessId: subscription.businessId, id: redemptionRef.id, code: makeCode(), 
-                businessName:subscription.businessName,subscriptionTitle:subscription.title
+                subscriptionId: subscription.id, requests: requests, collected: false, confirmed: false, collectBy: orderAhead ? date : new Date((new Date()).getTime() + delay*60000), redeemedBy: displayName, redeemedById: user?.uid,
+                redeemedAt: firestore.FieldValue.serverTimestamp(), businessId: subscription.businessId, id: redemptionRef.id, code: makeCode(),
+                businessName: subscription.businessName, subscriptionTitle: subscription.title,orderAhead:orderAhead,ready:false
             });
             batch.set(subscribedToRef, { redemptionCount: firestore.FieldValue.increment(1), lastRedeemed: firestore.FieldValue.serverTimestamp() }, { merge: true });
             await batch.commit();
@@ -249,19 +209,20 @@ export default function Subscription({ navigation, route }: any) {
 
     const cancelSubscription = async () => {
         setCancelling(true);
-        const stripeSubscriptionId = subscribedTo?.filter((item)=>item.subscriptionId === subscription.id)[0].stripeSubscriptionId
+        const stripeSubscriptionId = subscribedTo?.filter((item) => item.subscriptionId === subscription.id)[0].stripeSubscriptionId
         const subscribedToRef = firestore().collection('subscribedTo').doc(stripeSubscriptionId);
         try {
             const cancelStatus = await axios.post('https://lavalab.vercel.app/api/cancel', {
                 stripeSubscriptionId: stripeSubscriptionId,
             });
             if (cancelStatus.data.status === 'canceled') {
-                await subscribedToRef.update({status:'canceled'})
+                await subscribedToRef.update({ status: 'canceled' })
             }
         } catch (err) {
             console.log(err);
         }
         setCancelling(false)
+        setShowCancelOverlay(false)
     };
 
     const onTimeChange = (event: any, selectedDate: any) => {
@@ -307,17 +268,27 @@ export default function Subscription({ navigation, route }: any) {
                     </Shadow>
                 </Box>
                 {!isPurchased ?
-                    <Box bg="white" alignSelf="center" mt="30px" mb="30px" borderRadius="2xl">
-                        <Shadow radius={15} distance={10} paintInside={false} startColor="#0000000c">
-                            <Box w={screenWidth - 40} borderRadius="2xl" p="6" >
-                                <Heading fontWeight="600" size="sm">What you get</Heading>
-                                <Text >{subscription.description}</Text>
-                            </Box>
-                        </Shadow>
+                    <Box>
+                        <Box bg="white" alignSelf="center" mt="20px" mb="20px" borderRadius="2xl">
+                            <Shadow radius={15} distance={10} paintInside={false} startColor="#0000000c">
+                                <Box w={screenWidth - 40} borderRadius="2xl" p="4" >
+                                    <Heading fontWeight="600" size="sm">What you get</Heading>
+                                    <Text >{subscription.description}</Text>
+                                </Box>
+                            </Shadow>
+                        </Box>
+                        <Box bg="white" alignSelf="center" mb="20px" borderRadius="2xl">
+                            <Shadow radius={15} distance={10} paintInside={false} startColor="#0000000c">
+                                <Box w={screenWidth - 40} borderRadius="2xl" p="4" >
+                                    <Heading fontWeight="600" size="sm">Subscribe and save</Heading>
+                                    <Text>Save 10% of all your one time purchases by subscribing to {subscription.title}</Text>
+                                </Box>
+                            </Shadow>
+                        </Box>
                     </Box>
                     :
                     <Box>
-                        <Box mt="30px" mx="20px">
+                        <Box mt="20px" mx="20px">
                             <Flex flexDirection="row" justify="space-between">
                                 <Box bg="white" borderRadius="2xl" >
                                     <Shadow radius={15} distance={10} paintInside={false} startColor="#0000000c">
@@ -334,12 +305,12 @@ export default function Subscription({ navigation, route }: any) {
                                             <Text pr="20px">Days until renewal</Text>
                                         </HStack>
                                     </Shadow>
-                                </Box> 
+                                </Box>
                             </Flex>
                         </Box>
-                        <Box alignSelf="center" mt="30px" mb="30px" bg="white" borderRadius="2xl">
+                        <Box alignSelf="center" mt="20px" mb="20px" bg="white" borderRadius="2xl">
                             <Shadow radius={15} distance={10} paintInside={false} startColor="#0000000c">
-                                <Box w={screenWidth - 40} p="6" >
+                                <Box w={screenWidth - 40} p="4" >
                                     <Heading size="sm" fontWeight="600">Restrictions</Heading>
                                     {subscription.dayConstrain ? <Text>Limited to 1 redemption per day</Text> : null}
                                     <Text>Cannot be combined with other offers, promotions, sales, or coupons</Text>
@@ -349,9 +320,9 @@ export default function Subscription({ navigation, route }: any) {
                     </Box>
                 }
                 {!isPurchased ?
-                    <TouchableOpacity onPress={addCustomer}>
+                    <TouchableOpacity onPress={goToCheckout}>
                         <Flex borderRadius="10px" h="70px" align="center" justify="center" mx="20px" bg="black">
-                            <Button disabled variant="unstyled" _loading={{ bg: "black" }} _spinner={{ color: "white" }} isLoading={loading}><Text fontSize="15px" color="brand.500">{loading ? "Redirecting to checkout..." : "Purchase subscription"}</Text></Button>
+                            <Button disabled variant="unstyled" ><Text fontSize="15px" color="brand.500">Go to checkout</Text></Button>
                         </Flex>
                     </TouchableOpacity>
                     :
@@ -365,18 +336,20 @@ export default function Subscription({ navigation, route }: any) {
                             <Flex borderRadius="10px" h="70px" align="center" justify="center" mx="20px" bg="black">
                                 <Text fontSize="15px" color="brand.500">{isRedeeming ? "Redemption Code" : Math.round((customerSide.end.toDate().getTime() - (new Date()).getTime()) / (1000 * 3600 * 24)) <= -1 ? "Subscription expired" : subscription.limit - customerSide.redemptionCount < 1 ? "Redemption limit reached" : redeemedToday ? "Daily limit reached" : open ? "Redeem" : "Store is Closed"}</Text>
                             </Flex>
-                    </TouchableOpacity> : null)}
-                        {!isRedeeming ? <TouchableOpacity onPress={cancelSubscription}>
+                        </TouchableOpacity> : null)}
+                        {!isRedeeming ? <TouchableOpacity onPress={() => setShowCancelOverlay(true)}>
                             <Flex mt="20px" borderRadius="10px" h="70px" align="center" justify="center" mx="20px" bg="white">
-                                <Button disabled variant="unstyled" _loading={{ bg: "white" }} _spinner={{ color: "black" }} isLoading={cancelling}><Text fontSize="15px" color="brand.400">{cancelling ? "Cancelling..." : "Cancel subscription"}</Text></Button>
+                                <Button disabled variant="unstyled"><Text fontSize="15px" color="brand.400">Cancel subscription</Text></Button>
                             </Flex>
                         </TouchableOpacity> : null}
                     </>
                 }
                 <Box h="30px"></Box>
                 <RedOverlay subscription={subscription} redeem={redeem} showOverlay={showRedOverlay} setShowOverlay={setShowRedOverlay} onTimeChange={onTimeChange}
-                    requests={requests} setRequests={setRequests} date={date} error={error} loading={loading} delay={delay} outOfRange={outOfRange} />
+                    requests={requests} setRequests={setRequests} date={date} error={error} loading={loading} delay={delay} outOfRange={outOfRange} orderAhead={orderAhead} setOrderAhead={setOrderAhead}/>
                 <CodeOverlay code={code} showOverlay={showCodeOverlay} setShowOverlay={setShowCodeOverlay} />
+                <CancelOverlay cancel={cancelSubscription} showOverlay={showCancelOverlay} setShowOverlay={setShowCancelOverlay} loading={cancelling} redemptions={customerSide ? subscription.limit - customerSide.redemptionCount : 0}
+                    days={customerSide ? Math.max(Math.round((customerSide.end.toDate().getTime() - (new Date()).getTime()) / (1000 * 3600 * 24)), 0) : 0} />
             </KeyboardAwareScrollView>
         </SafeAreaView>
     )
@@ -398,7 +371,7 @@ function CodeOverlay({ code, showOverlay, setShowOverlay }: any) {
     )
 }
 
-function RedOverlay({ subscription, redeem, showOverlay, setShowOverlay, onTimeChange, requests, setRequests, date, error, loading, delay }: any) {
+function RedOverlay({ subscription, redeem, showOverlay, setShowOverlay, onTimeChange, requests, setRequests, date, error, loading, delay,orderAhead,setOrderAhead }: any) {
 
     return (
         <Modal isOpen={showOverlay} onClose={() => setShowOverlay(false)}>
@@ -406,19 +379,36 @@ function RedOverlay({ subscription, redeem, showOverlay, setShowOverlay, onTimeC
                 <Modal.CloseButton />
                 <Modal.Header>Confirm Redemption</Modal.Header>
                 <Modal.Body>
-                    <Flex flexDirection="column" p="4">
-                        <Text bold fontSize="xl">{subscription.businessName}</Text>
-                        <HStack mt="10px" >
-                            <Text>{subscription.title}</Text>
-                        </HStack>
+                    <VStack p="4">
+                        <Text fontSize="xl" fontWeight={500}>{subscription.title} from </Text>
+                        <Text fontSize="xl" fontWeight={500}>{subscription.businessName}</Text>
                         <VStack space={5} mt="20px">
-                            <Text >Ready By</Text>
-                            <Box marginTop="-50px">
-                                <DateTimePicker testID="dateTimePicker" value={date} mode='time' is24Hour={true}
-                                    display="default" onChange={onTimeChange} minimumDate={new Date()} />
-                            </Box>
-                            {delay > 0 ? <Text color="brand.800" >*Please note, there will be a delay of up to {delay} minutes</Text> : null}
-
+                            <HStack alignItems="center" justifyContent="space-between" marginBottom="10px">
+                                <Text>Order Now</Text>
+                                <Switch isChecked={orderAhead} onToggle={() => setOrderAhead(!orderAhead)}></Switch>
+                                <Text>Order Ahead</Text>
+                            </HStack>
+                            {orderAhead ?
+                                <>
+                                    <Box>
+                                        <Text >Ready By</Text>
+                                        <Text color="#959897">Min {parseInt(delay)+10} mins</Text>
+                                    </Box>
+                                    
+                                    <Box marginTop="-40px" marginBottom="20px">
+                                        <DateTimePicker testID="dateTimePicker" value={date} mode='time' is24Hour={true}
+                                            display="default" onChange={onTimeChange} minimumDate={new Date((new Date()).getTime() + (parseInt(delay)+10) * 60000)} />
+                                    </Box>
+                                </> :
+                                <HStack justifyContent="space-between">
+                                    <Text>Estimated waiting time: </Text>
+                                    <Text color="#959897">{delay} mins</Text>
+                                </HStack>
+                            }
+                            <HStack justifyContent="space-between">
+                                <Text>Your order: </Text>
+                                <Text color="#959897">1 {subscription.content}</Text>
+                            </HStack>
                             <Box>
                                 <TextArea placeholder="Leave a message..." p="4" borderRadius="xl" _focus={{ borderColor: 'black' }} value={requests} onChangeText={value => setRequests(value)} />
                             </Box>
@@ -432,6 +422,33 @@ function RedOverlay({ subscription, redeem, showOverlay, setShowOverlay, onTimeC
                             }}
                         >
                             Cancel
+                        </Button>
+                    </VStack>
+                </Modal.Body>
+            </Modal.Content>
+        </Modal>
+
+    )
+}
+
+function CancelOverlay({ cancel, showOverlay, setShowOverlay, loading, days, redemptions }: any) {
+
+    return (
+        <Modal isOpen={showOverlay} onClose={() => setShowOverlay(false)}>
+            <Modal.Content maxWidth="400px">
+                <Modal.CloseButton />
+                <Modal.Header>Cancel Subscription</Modal.Header>
+                <Modal.Body>
+                    <Flex flexDirection="column" p="4">
+                        <Text bold fontSize="md">Are you sure you want to cancel your subscription?</Text>
+                        <Text mt="2">You still have {days} days left to enjoy your {redemptions} remaining redemptions!</Text>
+                        <Button my="20px" borderRadius="10px" colorScheme="redeem" size="md" onPress={() => setShowOverlay(!showOverlay)}>Keep my subscription</Button>
+                        <Button
+                            variant="unstyled"
+                            onPress={cancel} isLoading={loading}
+                            _loading={{ bg: "white" }} _spinner={{ color: "brand.800" }}
+                        >
+                            <Text color="brand.800">Cancel</Text>
                         </Button>
                     </Flex>
                 </Modal.Body>

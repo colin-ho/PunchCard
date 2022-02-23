@@ -14,11 +14,13 @@ import AntDesign from 'react-native-vector-icons/AntDesign'
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { Fave } from '../utils/Fave';
 import { convertAbsoluteToRem } from 'native-base/lib/typescript/theme/tools';
+import CheckoutScreen from './CheckoutScreen';
 
 export type HomeStackParamList = {
     Feed: undefined;
     Shop: { business: FirebaseFirestoreTypes.DocumentData };
     Subscription: { subscription: FirebaseFirestoreTypes.DocumentData };
+    Checkout: { subscription: FirebaseFirestoreTypes.DocumentData };
 };
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
@@ -31,6 +33,7 @@ export const HomeScreen = () => {
             <Stack.Screen name='Feed' component={Feed} options={{ headerShown: false }} />
             <Stack.Screen name='Shop' component={ShopScreen} options={{ headerShown: false }} />
             <Stack.Screen name='Subscription' component={Subscription} options={{ headerShown: false }} />
+            <Stack.Screen name='Checkout' component={CheckoutScreen} options={{ headerShown: false }} />
         </Stack.Navigator>
     );
 };
@@ -59,7 +62,7 @@ const Feed: React.FC<FeedProps> = ({ navigation }) => {
 
     useEffect(() => {
         getFanFavorites();
-    }, [favorites,refreshing])
+    }, [favorites, refreshing])
 
     useEffect(() => {
         if (user) {
@@ -68,7 +71,7 @@ const Feed: React.FC<FeedProps> = ({ navigation }) => {
                 && favorites) {
                 const recommended = subscribedTo.reduce((prev, current) => (prev.redemptionCount > current.redemptionCount) ? prev : current)
                 const recommendedSub = subscriptions.filter((subscription: FirebaseFirestoreTypes.DocumentData) => subscription.id === recommended?.subscriptionId)[0];
-                if(recommendedSub){
+                if (recommendedSub) {
                     recommendedSub.favorite = favorites.includes(recommendedSub.id)
                     setRecommended(recommendedSub);
                 }
@@ -146,8 +149,8 @@ const ActiveItem: React.FC<ActiveItemInterface> = ({ subscription, redemption, a
                     <Box w={screenWidth - 40} borderRadius="2xl" overflow="hidden" >
                         <Flex flexDirection="column" p="6" bg="white">
                             <HStack mb="5px" space="3">
-                                <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg={redemption.confirmed ? "brand.800" : "brand.100"}>
-                                    <Text fontSize="12px" color="black">{redemption.confirmed ? 'Ready now' : 'Order received'}</Text>
+                                <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg={!redemption.confirmed ? "brand.800" : !redemption.ready ? "brand.200" : "brand.100"}>
+                                    <Text fontSize="12px" color="black">{!redemption.confirmed ? "Awaiting Confirmation" : !redemption.ready ? "Preparing Order" : "Order Ready"}</Text>
                                 </Flex>
                             </HStack>
                             <Text my="5px" fontWeight="600">{subscription.title + " from " + subscription.businessName}</Text>
@@ -155,11 +158,19 @@ const ActiveItem: React.FC<ActiveItemInterface> = ({ subscription, redemption, a
                                 <Text flex="1">Your Subscription:</Text>
                                 <Text color="#959897">{subscription.content}</Text>
                             </HStack>
-                            <HStack mt="10px" >
-                                <Text flex="1">Desired pick-up time:</Text>
-                                <Text color="#959897">{redemption.collectBy.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-                            </HStack>
-                            <HStack mt="10px" pr="10px" space="3">
+                            {redemption.orderAhead ?
+                                <HStack mt="10px" >
+                                    <Text flex="1">Desired pick-up time:</Text>
+                                    <Text color="#959897">{redemption.collectBy.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                                </HStack>
+                                :
+                                    <HStack mt="10px" >
+                                        <Text flex="1">Estimated pick-up time:</Text>
+                                        <Text color="#959897">{redemption.ready ? "Ready now" : redemption.collectBy.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                                    </HStack>
+                            }
+
+                            <HStack mt="20px" pr="10px" space="3">
                                 <Icon as={Entypo} name="location" />
                                 <Text numberOfLines={3} mr="10px" isTruncated pr="10px">{address}</Text>
                             </HStack>

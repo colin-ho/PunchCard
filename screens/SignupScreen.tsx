@@ -4,7 +4,7 @@ import { Formik } from 'formik';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { View, TextInput, Logo, Button, FormErrorMessage } from '../components';
 import { Images, Colors } from '../config';
-import { AuthenticatedUserContext } from '../providers/AuthUserProvider';
+import { AuthenticatedUserContext, AuthenticatedUserContextInterface } from '../providers/AuthUserProvider';
 import { useTogglePasswordVisibility } from '../utils/useTogglePasswordVisibility';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
@@ -14,7 +14,6 @@ import { signupValidationSchema } from '../utils';
 export const SignupScreen = ({ navigation }: any) => {
     const [isLoading, setIsLoading] = useState(false)
     const [errorState, setErrorState] = useState('');
-    const { setNeedsLogin }: any = useContext(AuthenticatedUserContext)
     const {
         passwordVisibility,
         handlePasswordVisibility,
@@ -40,11 +39,11 @@ export const SignupScreen = ({ navigation }: any) => {
                 });
                 userDoc.set({ uid: user.uid, displayName: name, email: email, stripeCustomerId: res.data.customer.id, favorites: [] });
             }
-            setIsLoading(false);
-            setNeedsLogin(false);
+            
         }
         catch (err:any) {
             console.log(err)
+            setIsLoading(false);
             setErrorState(err.message)
         }
 
@@ -156,12 +155,6 @@ export const SignupScreen = ({ navigation }: any) => {
                     borderless
                     title={'Already have an account?'}
                     onPress={() => navigation.navigate('Login')}
-                />
-                <Button
-                    style={styles.borderlessButtonContainer}
-                    borderless
-                    title={'Go back to app'}
-                    onPress={() => setNeedsLogin(false)}
                 />
             </KeyboardAwareScrollView>
         </View>

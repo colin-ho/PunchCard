@@ -10,22 +10,20 @@ import { AuthenticatedUserContext } from '../providers/AuthUserProvider';
 import { useTogglePasswordVisibility } from '../utils/useTogglePasswordVisibility';
 
 export const LoginScreen = ({ navigation }:any) => {
-  const {setNeedsLogin} :any= useContext(AuthenticatedUserContext)
   const [isLoading,setIsLoading] = useState(false);
   const [errorState, setErrorState] = useState('');
   const { passwordVisibility, handlePasswordVisibility, rightIcon } =
     useTogglePasswordVisibility();
 
-  const handleLogin = (values:any) => {
+  const handleLogin = async(values:any) => {
     const { email, password } = values;
     setIsLoading(true)
-    auth().signInWithEmailAndPassword( email, password).then(()=>{
-      setIsLoading(false)
-      setNeedsLogin(false);
-    }).catch(error =>
-      setErrorState(error.message)
-    );
-
+    try{
+        await auth().signInWithEmailAndPassword( email, password)
+    } catch(err:any){
+        setIsLoading(false)
+        setErrorState(err.message)
+    }
   };
   return (
     <>
@@ -104,12 +102,6 @@ export const LoginScreen = ({ navigation }:any) => {
             borderless
             title={'Create a new account?'}
             onPress={() => navigation.navigate('Signup')}
-          />
-          <Button
-            style={styles.borderlessButtonContainer}
-            borderless
-            title={'Go back to app'}
-            onPress={() => setNeedsLogin(false)}
           />
         </KeyboardAwareScrollView>
       </View>

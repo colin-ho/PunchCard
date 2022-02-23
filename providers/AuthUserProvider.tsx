@@ -7,8 +7,6 @@ export interface AuthenticatedUserContextInterface {
     setUser?: React.Dispatch<React.SetStateAction<FirebaseAuthTypes.User | null>>
     displayName?: string
     setDisplayName?: React.Dispatch<React.SetStateAction<string>>
-    needsLogin?: boolean
-    setNeedsLogin?: React.Dispatch<React.SetStateAction<boolean>>
     subscriptions?: FirebaseFirestoreTypes.DocumentData[]
     favorites?: FirebaseFirestoreTypes.DocumentData[]
     subscribedTo?: FirebaseFirestoreTypes.DocumentData[]
@@ -21,7 +19,6 @@ export const AuthenticatedUserContext = createContext<AuthenticatedUserContextIn
 export const AuthenticatedUserProvider: React.FC<React.ReactNode> = ({ children }) => {
     const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
     const [displayName, setDisplayName] = useState<string>('');
-    const [needsLogin, setNeedsLogin] = useState<boolean>(false);
     const [subscriptions, setSubscriptions] = useState<FirebaseFirestoreTypes.DocumentData[]>([])
     const [favorites, setFavorites] = useState<FirebaseFirestoreTypes.DocumentData[]>([]);
     const [redeeming,setRedeeming] = useState<FirebaseFirestoreTypes.DocumentData[]>([]);
@@ -77,10 +74,11 @@ export const AuthenticatedUserProvider: React.FC<React.ReactNode> = ({ children 
         return ()=>{
             subListener?.();
             userListener?.();
+            redemptionListener?.();
         }
     }, [user]);
     return (
-        <AuthenticatedUserContext.Provider value={{ user, setUser, displayName, needsLogin, setNeedsLogin, subscriptions, favorites,redeeming,subscribedTo ,stripeCustomerId}}>
+        <AuthenticatedUserContext.Provider value={{ user, setUser, displayName, subscriptions, favorites,redeeming,subscribedTo ,stripeCustomerId}}>
             {children}
         </AuthenticatedUserContext.Provider>
     );

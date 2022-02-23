@@ -9,7 +9,6 @@ import { AuthenticatedUserContext, AuthenticatedUserContextInterface } from "../
 
 const screenWidth = Dimensions.get('window').width;
 export const LandingScreen =({navigation}:any)=>{
-    const {setNeedsLogin} = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
     return(
         <Flex flexDirection="column"  justify="center" alignItems="center">
         <Image source={Images.landing} alt=" " mt="-100px" resizeMode="contain" w={screenWidth}/>
@@ -33,12 +32,6 @@ export const LandingScreen =({navigation}:any)=>{
             </Shadow>
             </Box>
         </TouchableOpacity>
-        <Button
-            style={styles.borderlessButtonContainer}
-            borderless
-            title={'Go back to app'}
-            onPress={() => setNeedsLogin&&setNeedsLogin(false)}
-          />
         </Flex>
         
     )

@@ -31,16 +31,10 @@ export const AccountScreen: React.FC = () => {
 type AccountOverviewProps = NativeStackScreenProps<AccountStackParamList, 'AccountOverview'>;
 
 const AccountOverview: React.FC<AccountOverviewProps> = ({ navigation }) => {
-    const { user, setNeedsLogin, displayName } = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
+    const { user, displayName } = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
 
-    useEffect(() => {
-        if (!user && setNeedsLogin) {
-            setNeedsLogin(true)
-        }
-    }, [])
     const handleLogout = () => {
         auth().signOut().catch(error => console.log('Error logging out: ', error));
-        if (setNeedsLogin) setNeedsLogin(true)
     };
     return (
         <SafeAreaView style={{ flex: 1 }} edges={['top', 'right', 'left']}>

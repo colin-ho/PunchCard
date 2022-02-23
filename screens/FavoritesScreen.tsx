@@ -32,17 +32,14 @@ export const FavoritesScreen = () => {
 type FeedProps = NativeStackScreenProps<FavoritesStackParamList, 'Feed'>;
 
 const Feed:React.FC<FeedProps> = ({navigation})=>{
-  const {user,setNeedsLogin,favorites} = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
+  const {user,favorites} = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
   const [filtered,setFiltered] = useState<FirebaseFirestoreTypes.DocumentData[]>([]);
   useEffect(() => {
-    let unsubscribe;
-    if(!user){
-      if(setNeedsLogin) setNeedsLogin(true);
-    }
-    else{
+    let favoritesListener:()=>void;
+    if(user){
         if(favorites&&favorites.length>0){
-            let query = firestore().collectionGroup('subscriptions').where('id', 'in', favorites)
-            unsubscribe = query.onSnapshot((snapshot)=>{
+            let query = firestore().collection('subscriptions').where('id', 'in', favorites)
+            favoritesListener = query.onSnapshot((snapshot)=>{
                 const data= snapshot?.docs.map((doc) => doc.data());
                 setFiltered(data);  
             })
@@ -50,7 +47,9 @@ const Feed:React.FC<FeedProps> = ({navigation})=>{
             setFiltered([]);  
         }
     }
-    return unsubscribe;
+    return ()=>{
+        favoritesListener?.();
+    }
   }, [favorites])
 
   return (

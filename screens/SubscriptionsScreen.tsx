@@ -11,10 +11,12 @@ import { BusinessContext, BusinessContextInterface } from '../providers/Business
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 import { Fave } from '../utils/Fave';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import CheckoutScreen from './CheckoutScreen';
 
 export type SubscriptionsStackParamList = {
     Feed: undefined;
     Subscription: { subscription: FirebaseFirestoreTypes.DocumentData };
+    Checkout:{ subscription: FirebaseFirestoreTypes.DocumentData };
 };
 const Stack = createNativeStackNavigator<SubscriptionsStackParamList>();
 const screenWidth = Dimensions.get('window').width;
@@ -24,6 +26,7 @@ export const SubscriptionsScreen = () => {
         <Stack.Navigator>
             <Stack.Screen name='Feed' component={Feed} options={{ headerShown: false }} />
             <Stack.Screen name='Subscription' component={Subscription} options={{ headerShown: false }} />
+            <Stack.Screen name='Checkout' component={CheckoutScreen} options={{ headerShown: false }} />
         </Stack.Navigator>
     );
 };
@@ -31,15 +34,10 @@ export const SubscriptionsScreen = () => {
 type FeedProps = NativeStackScreenProps<SubscriptionsStackParamList, 'Feed'>;
 
 const Feed = ({ navigation }: FeedProps) => {
-    const { user, setNeedsLogin, subscriptions, favorites } = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
+    const { user, subscriptions, favorites } = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
     const { businesses } = useContext<BusinessContextInterface>(BusinessContext)
     const [firstSub, setFirstSub] = useState<FirebaseFirestoreTypes.DocumentData | null>(null);
     const [filtered, setFiltered] = useState<FirebaseFirestoreTypes.DocumentData[]>([]);
-    useEffect(() => {
-        if (!user) {
-            setNeedsLogin && setNeedsLogin(true);
-        }
-    }, [])
 
     useEffect(() => {
         let temp = [];
