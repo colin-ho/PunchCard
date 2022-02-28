@@ -45,6 +45,7 @@
 		ABFE59519B596E51CEFDCCC0 /* libPods-PunchCard-PunchCardTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-PunchCard-PunchCardTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B63C59F327955C4C00DCC911 /* fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = fonts; sourceTree = "<group>"; };
 		B66C84052770645D004E0883 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		B68F98B327CB0F4100015456 /* PunchCard.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = PunchCard.entitlements; path = PunchCard/PunchCard.entitlements; sourceTree = "<group>"; };
 		C0A881CF5CF3F2B244570E2A /* Pods-PunchCard.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PunchCard.debug.xcconfig"; path = "Target Support Files/Pods-PunchCard/Pods-PunchCard.debug.xcconfig"; sourceTree = "<group>"; };
 		D00AAFFCFCFDA5787532823F /* Pods-PunchCard.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PunchCard.release.xcconfig"; path = "Target Support Files/Pods-PunchCard/Pods-PunchCard.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
@@ -90,6 +91,7 @@
 		13B07FAE1A68108700A75B9A /* PunchCard */ = {
 			isa = PBXGroup;
 			children = (
+				B68F98B327CB0F4100015456 /* PunchCard.entitlements */,
 				B66C84052770645D004E0883 /* GoogleService-Info.plist */,
 				13B07FAF1A68108700A75B9A /* AppDelegate.h */,
 				13B07FB01A68108700A75B9A /* AppDelegate.m */,
@@ -507,6 +509,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = PunchCard/PunchCard.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = PunchCard/Info.plist;
@@ -533,6 +536,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = PunchCard/PunchCard.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = PunchCard/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

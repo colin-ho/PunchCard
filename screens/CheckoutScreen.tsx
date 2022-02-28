@@ -7,11 +7,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Shadow } from "react-native-shadow-2";
 import { AuthenticatedUserContext, AuthenticatedUserContextInterface } from "../providers/AuthUserProvider";
 import Ionicons from 'react-native-vector-icons/Ionicons'
+import { UserDataContext, UserDataContextInterface } from "../providers/UserDataProvider";
 
 const screenWidth = Dimensions.get('window').width;
 
 export default function CheckoutScreen({ navigation, route }: any) {
-    const { user, displayName, stripeCustomerId } = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
+    const { user, } = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
+    const {displayName,stripeCustomerId} = useContext<UserDataContextInterface>(UserDataContext)
+
     const subscription = route.params.subscription
     const [loading, setLoading] = useState(false)
     const [showNotes, setShowNotes] = useState(false)
@@ -20,7 +23,10 @@ export default function CheckoutScreen({ navigation, route }: any) {
         const { error } = await presentPaymentSheet();
         setLoading(false);
         if (error) {
-            if (error.code === 'Failed') Alert.alert(`Error: ${error.code}`, error.message);
+            if (error.code === 'Failed') {
+                Alert.alert(`Error: ${error.code}`, error.message);
+                console.log(error)
+            }
         } else {
             navigation.goBack()
             Alert.alert('Success', 'Your order is confirmed!');
@@ -56,14 +62,15 @@ export default function CheckoutScreen({ navigation, route }: any) {
                     customerId: stripeCustomerId,
                     paymentIntentClientSecret: clientSecret,
                     customerEphemeralKeySecret: ephemeralKey,
-                    merchantDisplayName: 'Example Inc.',
                 });
                 if (!error) {
                     await openPaymentSheet()
                 } else throw error;
 
             } catch (err) {
+                setLoading(false)
                 console.log(err)
+                Alert.alert("Sorry! There was an error.");
             }
         }
     }

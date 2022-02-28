@@ -1,6 +1,6 @@
 import AntDesign from 'react-native-vector-icons/AntDesign';
 import Ionicons from 'react-native-vector-icons/Ionicons'
-import { Box, Button, FlatList, Flex, Heading, HStack, Icon, Image, Text } from 'native-base';
+import { Box, Button, FlatList, Flex, Heading, HStack, Icon, Image, Text, VStack } from 'native-base';
 import React, { useState, useEffect, useContext } from 'react'
 import { Dimensions } from 'react-native';
 import { ScrollView, TouchableOpacity, View } from 'react-native'
@@ -14,6 +14,7 @@ import { BrowseStackParamList } from './BrowseScreen';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { HomeStackParamList } from './HomeScreen';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import { UserDataContext, UserDataContextInterface } from '../providers/UserDataProvider';
 
 
 type ShopProps = CompositeScreenProps<
@@ -25,16 +26,18 @@ const screenWidth = Dimensions.get('window').width;
 
 export const ShopScreen: React.FC<ShopProps> = ({ navigation, route }) => {
     const [subscriptions, setSubscriptions] = useState<FirebaseFirestoreTypes.DocumentData[]>([]);
-    const { user, favorites } = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
+    const { user } = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
+    const { favorites } = useContext<UserDataContextInterface>(UserDataContext)
 
+    const business = route.params.business
     const getSubs = async () => {
         const query = firestore()
             .collection('subscriptions')
-            .where('businessId','==',route.params.business.uid)
+            .where('businessId', '==', business.uid)
             .where('published', '==', true)
             .where('archived', '==', false)
             .orderBy('updatedAt', 'desc')
-            
+
         const newSubscriptions = (await query.get()).docs.map((doc) => doc.data());
         let temp = [];
         for (let i = 0; i < newSubscriptions.length; i++) {
@@ -52,14 +55,27 @@ export const ShopScreen: React.FC<ShopProps> = ({ navigation, route }) => {
             <ScrollView>
                 <HStack alignItems="center" pl="10px" pr="30px" pt="20px">
                     <Button variant="unstyled" onPress={() => navigation.goBack()} leftIcon={<Icon as={Ionicons} name="chevron-back" size="sm" color="black" />}></Button>
-                    <Heading fontWeight="600" flex="1" size="md">{route.params.business.businessName}</Heading>
+                    <Heading fontWeight="600" flex="1" size="md">{business.businessName}</Heading>
                 </HStack>
                 <Box alignSelf="center" mt="10px" bg="white" borderRadius="2xl">
                     <Shadow radius={15} distance={10} paintInside={false} startColor="#0000000c">
-                        <Box w={screenWidth - 40} p="6">
-                            <Heading fontWeight="500" size="sm">{route.params.business.description}</Heading>
-                            <Text color="#959897" mt="10px">Location: {route.params.business.address}</Text>
-                        </Box>
+                        <VStack space="5" w={screenWidth - 40} p="6">
+                            <HStack space="3">
+                                <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg="brand.300" >
+                                    <Text fontSize="12px" color="black">{business.businessType.charAt(0).toUpperCase() + business.businessType.slice(1)}</Text>
+                                </Flex>
+                                {business.tags.map((tag: string) => {
+                                    return (
+                                        <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg="brand.300" key={tag}>
+                                            <Text fontSize="12px" color="black">{tag.charAt(0).toUpperCase() + tag.slice(1)}</Text>
+                                        </Flex>
+                                    )
+                                })}
+                            </HStack>
+                            <Heading fontWeight="500" size="sm">{business.description}</Heading>
+
+                            <Text color="#959897">Location: {business.address}</Text>
+                        </VStack>
                     </Shadow>
                 </Box>
 
@@ -69,7 +85,7 @@ export const ShopScreen: React.FC<ShopProps> = ({ navigation, route }) => {
                         {subscriptions.map((item: FirebaseFirestoreTypes.DocumentData) => {
                             return (
                                 <TouchableOpacity key={item.id} activeOpacity={1} onPress={() => navigation.navigate('Subscription', { subscription: item })}>
-                                    <SubscriptionItem user={user} subscription={item} isFavorite={favorites ? favorites.includes(item.id):false}/>
+                                    <SubscriptionItem user={user} subscription={item} isFavorite={favorites ? favorites.includes(item.id) : false} />
                                 </TouchableOpacity>
                             )
                         })}
@@ -83,10 +99,10 @@ export const ShopScreen: React.FC<ShopProps> = ({ navigation, route }) => {
 interface SubscriptionItemProps {
     subscription: FirebaseFirestoreTypes.DocumentData
     user: FirebaseAuthTypes.User | null | undefined
-    isFavorite:boolean
+    isFavorite: boolean
 }
 
-function SubscriptionItem({ subscription, user,isFavorite }: SubscriptionItemProps) {
+function SubscriptionItem({ subscription, user, isFavorite }: SubscriptionItemProps) {
 
     return (
 

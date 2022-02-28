@@ -1,4 +1,4 @@
-import React, { useContext, useState,  } from 'react';
+import React, { useContext, useRef, useState,  } from 'react';
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import {ShopScreen} from './ShopScreen';
 import Subscription from './Subscription';
@@ -103,13 +103,16 @@ const TopItem:React.FC<FirebaseFirestoreTypes.DocumentData> = ({ business })=> {
                     </Box>
                     <Flex flexDirection="column" align="flex-start" p="6" bg="white">
                         <HStack space="3" mb="5px">
-                            {business.totalCustomers > 0 ?
-                                <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg="brand.100">
-                                    <Text fontSize="12px" color="black">Popular</Text>
-                                </Flex> : null}
                             <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg="brand.300">
                                 <Text fontSize="12px" color="black">{business.businessType.charAt(0).toUpperCase() + business.businessType.slice(1)}</Text>
                             </Flex>
+                            {business.tags.map((tag: string) => {
+                                    return (
+                                        <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg="brand.300" key={tag}>
+                                            <Text fontSize="12px" color="black">{tag.charAt(0).toUpperCase() + tag.slice(1)}</Text>
+                                        </Flex>
+                                    )
+                                })}
                         </HStack>
                         <Heading fontWeight="600" mt="10px" size="sm">{business.businessName}</Heading>
                         <Text color="#959897" fontSize="sm">{business.description}</Text>
@@ -130,10 +133,6 @@ const ShopItem:React.FC<FirebaseFirestoreTypes.DocumentData> = ({ business })=> 
                     </Box>
                     <Flex flexDirection="column" align="flex-start" h="xs" p="6" bg="white">
                         <HStack space="3" mb="5px">
-                            {business.totalCustomers > 0 ?
-                                <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg="brand.100">
-                                    <Text fontSize="12px" color="black">Popular</Text>
-                                </Flex> : null}
                             <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg="brand.300">
                                 <Text fontSize="12px" color="black">{business.businessType.charAt(0).toUpperCase() + business.businessType.slice(1)}</Text>
                             </Flex>
@@ -155,10 +154,11 @@ interface SearchBarProps{
     goToResults: () => void
 }
 const Searchbar:React.FC<SearchBarProps> = ({ setShowOverlay, showOverlay, search, setSearch, goToResults })=> {
+    const initialRef = useRef(null);
 
     return (
 
-        <Modal isOpen={showOverlay} onClose={() => setShowOverlay(false)}>
+        <Modal isOpen={showOverlay} onClose={() => setShowOverlay(false)} initialFocusRef={initialRef}>
             <Modal.Content mt="100px" mb="auto" maxWidth="400px">
                 <Modal.CloseButton />
                 <Modal.Header style={{ borderBottomWidth: 0 }}>Search</Modal.Header>
@@ -174,6 +174,7 @@ const Searchbar:React.FC<SearchBarProps> = ({ setShowOverlay, showOverlay, searc
                             onChangeText={(e) => setSearch(e)}
                             onSubmitEditing={() => goToResults()}
                             value={search}
+                            ref={initialRef}
                             InputLeftElement={
                                 <Icon
                                     ml="2"

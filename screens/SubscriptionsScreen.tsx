@@ -12,11 +12,12 @@ import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firest
 import { Fave } from '../utils/Fave';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import CheckoutScreen from './CheckoutScreen';
+import { UserDataContext, UserDataContextInterface } from '../providers/UserDataProvider';
 
 export type SubscriptionsStackParamList = {
     Feed: undefined;
     Subscription: { subscription: FirebaseFirestoreTypes.DocumentData };
-    Checkout:{ subscription: FirebaseFirestoreTypes.DocumentData };
+    Checkout: { subscription: FirebaseFirestoreTypes.DocumentData };
 };
 const Stack = createNativeStackNavigator<SubscriptionsStackParamList>();
 const screenWidth = Dimensions.get('window').width;
@@ -34,7 +35,9 @@ export const SubscriptionsScreen = () => {
 type FeedProps = NativeStackScreenProps<SubscriptionsStackParamList, 'Feed'>;
 
 const Feed = ({ navigation }: FeedProps) => {
-    const { user, subscriptions, favorites } = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
+    const { user, } = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
+    const { subscriptions, favorites, subscribedTo } = useContext<UserDataContextInterface>(UserDataContext)
+
     const { businesses } = useContext<BusinessContextInterface>(BusinessContext)
     const [firstSub, setFirstSub] = useState<FirebaseFirestoreTypes.DocumentData | null>(null);
     const [filtered, setFiltered] = useState<FirebaseFirestoreTypes.DocumentData[]>([]);
@@ -79,20 +82,26 @@ const Feed = ({ navigation }: FeedProps) => {
                         {firstSub ? <Heading fontWeight="500" size="md">Based on your location</Heading> : null}
                         {firstSub ?
                             <TouchableOpacity activeOpacity={1} onPress={() => navigation.navigate('Subscription', { subscription: firstSub })}>
-                                <SubscriptionItem subscription={firstSub} user={user} isFavorite={favorites ? favorites.includes(firstSub.id) : false} />
+                                <SubscriptionItem subscription={firstSub} user={user} isFavorite={favorites ? favorites.includes(firstSub.id) : false}
+                                    isMaxed={subscribedTo?.find(item => item.subscriptionId === firstSub.id)?.redemptionCount == firstSub.limit}
+                                    isExpired={subscribedTo?.find(item => item.subscriptionId === firstSub.id)?.status === 'incomplete'} />
                             </TouchableOpacity>
                             : null}
                         {firstSub && filtered.length > 1 ? <Heading fontWeight="500" size="md">All subscriptions</Heading> : null}
                         {filtered.length > 0 ? firstSub ? filtered.filter((subscription: FirebaseFirestoreTypes.DocumentData) => subscription.id != firstSub.id).map((subscription: FirebaseFirestoreTypes.DocumentData) => {
                             return (
                                 <TouchableOpacity key={subscription.id} activeOpacity={1} onPress={() => navigation.navigate('Subscription', { subscription })}>
-                                    <SubscriptionItem subscription={subscription} user={user} isFavorite={favorites ? favorites.includes(subscription.id) : false} />
+                                    <SubscriptionItem subscription={subscription} user={user} isFavorite={favorites ? favorites.includes(subscription.id) : false}
+                                        isMaxed={subscribedTo?.find(item => item.subscriptionId === subscription.id)?.redemptionCount == subscription.limit}
+                                        isExpired={subscribedTo?.find(item => item.subscriptionId === subscription.id)?.status === 'incomplete'} />
                                 </TouchableOpacity>
                             )
                         }) : filtered.map((subscription: FirebaseFirestoreTypes.DocumentData) => {
                             return (
                                 <TouchableOpacity key={subscription.id} activeOpacity={1} onPress={() => navigation.navigate('Subscription', { subscription })}>
-                                    <SubscriptionItem subscription={subscription} user={user} isFavorite={favorites ? favorites.includes(subscription.id) : false} />
+                                    <SubscriptionItem subscription={subscription} user={user} isFavorite={favorites ? favorites.includes(subscription.id) : false}
+                                        isMaxed={subscribedTo?.find(item => item.subscriptionId === subscription.id)?.redemptionCount == subscription.limit}
+                                        isExpired={subscribedTo?.find(item => item.subscriptionId === subscription.id)?.status === 'incomplete'} />
                                 </TouchableOpacity>
                             )
                         }) : <Text>Buy subscriptions to get started!</Text>}
@@ -107,9 +116,11 @@ interface SubscriptionItemProps {
     subscription: FirebaseFirestoreTypes.DocumentData
     user: FirebaseAuthTypes.User | null | undefined
     isFavorite: boolean
+    isMaxed: boolean
+    isExpired:boolean
 }
 
-function SubscriptionItem({ subscription, user, isFavorite }: SubscriptionItemProps) {
+function SubscriptionItem({ subscription, user, isFavorite, isMaxed,isExpired }: SubscriptionItemProps) {
 
     return (
 
@@ -122,6 +133,14 @@ function SubscriptionItem({ subscription, user, isFavorite }: SubscriptionItemPr
                     </Box>
                     <Flex flexDirection="column" p="6" bg="white">
                         <HStack space="3" mb="5px">
+                            {isExpired ?
+                                <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg="brand.800">
+                                    <Text fontSize="12px" color="black">Expired</Text>
+                                </Flex> : null}
+                            {isMaxed ?
+                                <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg="brand.800">
+                                    <Text fontSize="12px" color="black">Limit Reached</Text>
+                                </Flex> : null}
                             {subscription.redemptionCount > 2 ?
                                 <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg="brand.100">
                                     <Text fontSize="12px" color="black">Popular</Text>

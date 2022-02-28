@@ -9,6 +9,7 @@ import { TouchableOpacity } from 'react-native';
 import { AuthenticatedUserContext, AuthenticatedUserContextInterface } from '../providers/AuthUserProvider';
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HistoryScreen } from './HistoryScreen';
+import { UserDataContext, UserDataContextInterface, UserDataProvider } from '../providers/UserDataProvider';
 
 export type AccountStackParamList = {
     AccountOverview: undefined;
@@ -31,7 +32,8 @@ export const AccountScreen: React.FC = () => {
 type AccountOverviewProps = NativeStackScreenProps<AccountStackParamList, 'AccountOverview'>;
 
 const AccountOverview: React.FC<AccountOverviewProps> = ({ navigation }) => {
-    const { user, displayName } = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
+    const { user } = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
+    const {displayName} = useContext<UserDataContextInterface>(UserDataContext)
 
     const handleLogout = () => {
         auth().signOut().catch(error => console.log('Error logging out: ', error));

@@ -18,6 +18,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { BrowseStackParamList } from './BrowseScreen';
 import { HomeStackParamList } from './HomeScreen';
 import { SubscriptionsStackParamList } from './SubscriptionsScreen';
+import { UserDataContext, UserDataContextInterface } from '../providers/UserDataProvider';
+import { initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-native';
 
 function makeCode() {
     var result = '';
@@ -37,6 +39,15 @@ const showToast = () => {
         text2: 'We hope you enjoy your purchase 👋'
     });
 }
+
+const openPaymentSheet = async () => {
+    const { error } = await presentPaymentSheet();
+    if (error) {
+        if (error.code === 'Failed') Alert.alert(`Error: ${error.code}`, error.message);
+    } else {
+        Alert.alert('Success', 'Your subscription has been renewed!');
+    }
+};
 const screenWidth = Dimensions.get('window').width;
 const geofire = require('geofire-common');
 
@@ -48,7 +59,9 @@ type firstProps = CompositeScreenProps<
 type secondProps = CompositeScreenProps<firstProps, NativeStackScreenProps<SubscriptionsStackParamList, 'Subscription'>>;
 
 export default function Subscription({ navigation, route }: secondProps) {
-    const { user, displayName, favorites, redeeming, subscribedTo, stripeCustomerId } = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
+    const { user, } = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
+    const { stripeCustomerId } = useContext<UserDataContextInterface>(UserDataContext)
+    const { displayName, favorites, redeeming, subscribedTo } = useContext<UserDataContextInterface>(UserDataContext)
     const { location } = useContext<BusinessContextInterface>(BusinessContext);
     const [isPurchased, setIsPurchased] = useState(false)
     const [isRedeeming, setIsRedeeming] = useState<boolean | null>(null);
@@ -116,19 +129,18 @@ export default function Subscription({ navigation, route }: secondProps) {
 
     useEffect(() => {
 
-        let businessListener: () => void;
         const businessQuery = firestore()
             .collection('businesses').doc(subscription.businessId);
 
-        businessListener = businessQuery.onSnapshot((snapshot: FirebaseFirestoreTypes.DocumentSnapshot) => {
+        const businessListener = businessQuery.onSnapshot((snapshot: FirebaseFirestoreTypes.DocumentSnapshot) => {
             if (snapshot.exists) {
                 setDelay(snapshot.data()?.delay);
-                setDate(new Date((new Date()).getTime() + (parseInt(snapshot.data()?.delay)+10) * 60000))
+                setDate(new Date((new Date()).getTime() + (parseInt(snapshot.data()?.delay) + 10) * 60000))
                 let times = snapshot.data()?.times;
                 let hours = null;
                 const today = new Date()
                 snapshot.data()?.closures.forEach((closure: any) => {
-                    if (today.getUTCDate() >= (new Date(closure.from)).getUTCDate() || today.getUTCDate() <= (new Date(closure.to)).getUTCDate()) {
+                    if (today.getUTCDate() >= (new Date(closure.from)).getUTCDate() && today.getUTCDate() <= (new Date(closure.to)).getUTCDate()) {
                         hours = closure.hours;
                     }
                 })
@@ -155,11 +167,9 @@ export default function Subscription({ navigation, route }: secondProps) {
                     setOutOfRange(true);
                 }
             }
-        })
+        }, err => console.log("businessListener: ", err))
 
-        return () => {
-            businessListener?.();
-        }
+        return businessListener
     }, [subscription, user, subscribedTo])
 
     const goToCheckout = async () => {
@@ -168,7 +178,7 @@ export default function Subscription({ navigation, route }: secondProps) {
     const redeem = async () => {
 
         const now = new Date();
-        if (date < now) {
+        if (date < now && orderAhead) {
             setError("You cannot choose a time earlier than the current time")
             return;
         }
@@ -192,9 +202,9 @@ export default function Subscription({ navigation, route }: secondProps) {
             const batch = firestore().batch();
             batch.update(subRef, { redemptionCount: firestore.FieldValue.increment(1) });
             batch.set(redemptionRef, {
-                subscriptionId: subscription.id, requests: requests, collected: false, confirmed: false, collectBy: orderAhead ? date : new Date((new Date()).getTime() + delay*60000), redeemedBy: displayName, redeemedById: user?.uid,
+                subscriptionId: subscription.id, requests: requests, collected: false, confirmed: false, collectBy: orderAhead ? date : new Date((new Date()).getTime() + delay * 60000), redeemedBy: displayName, redeemedById: user?.uid,
                 redeemedAt: firestore.FieldValue.serverTimestamp(), businessId: subscription.businessId, id: redemptionRef.id, code: makeCode(),
-                businessName: subscription.businessName, subscriptionTitle: subscription.title,orderAhead:orderAhead,ready:false
+                businessName: subscription.businessName, subscriptionTitle: subscription.title, orderAhead: orderAhead, ready: false
             });
             batch.set(subscribedToRef, { redemptionCount: firestore.FieldValue.increment(1), lastRedeemed: firestore.FieldValue.serverTimestamp() }, { merge: true });
             await batch.commit();
@@ -210,14 +220,10 @@ export default function Subscription({ navigation, route }: secondProps) {
     const cancelSubscription = async () => {
         setCancelling(true);
         const stripeSubscriptionId = subscribedTo?.filter((item) => item.subscriptionId === subscription.id)[0].stripeSubscriptionId
-        const subscribedToRef = firestore().collection('subscribedTo').doc(stripeSubscriptionId);
         try {
-            const cancelStatus = await axios.post('https://lavalab.vercel.app/api/cancel', {
+            await axios.post('https://lavalab.vercel.app/api/cancel', {
                 stripeSubscriptionId: stripeSubscriptionId,
             });
-            if (cancelStatus.data.status === 'canceled') {
-                await subscribedToRef.update({ status: 'canceled' })
-            }
         } catch (err) {
             console.log(err);
         }
@@ -233,6 +239,36 @@ export default function Subscription({ navigation, route }: secondProps) {
             setError("")
         }
     };
+
+    const renewSubscription = async () => {
+        if (user && customerSide) {
+            try {
+                const subCreateRes = await axios.post('https://lavalab.vercel.app/api/retrievePayment', {
+                    paymentIntentId: customerSide.paymentIntentId
+                })
+                const { clientSecret } = subCreateRes.data
+
+                const ephemeralData = await axios.post('https://lavalab.vercel.app/api/createEphemeral', {
+                    customerId: stripeCustomerId,
+                })
+
+                const { ephemeralKey } = ephemeralData.data
+
+                const { error } = await initPaymentSheet({
+                    customerId: stripeCustomerId,
+                    paymentIntentClientSecret: clientSecret,
+                    customerEphemeralKeySecret: ephemeralKey,
+                });
+                if (!error) {
+                    await openPaymentSheet()
+                } else throw error;
+
+            } catch (err) {
+                console.log(err)
+            }
+        }
+    }
+
     return (
         <SafeAreaView style={{ flex: 1 }} edges={['top', 'right', 'left']}>
             <KeyboardAwareScrollView>
@@ -249,10 +285,6 @@ export default function Subscription({ navigation, route }: secondProps) {
                             </Box>
                             <Flex flexDirection="column" p="6" bg="white">
                                 <HStack space="3" mb="5px">
-                                    {!open ?
-                                        <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg="brand.800">
-                                            <Text fontSize="12px" color="black">Closed</Text>
-                                        </Flex> : null}
                                     {subscription.redemptionCount > 2 ?
                                         <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg="brand.100">
                                             <Text fontSize="12px" color="black">Popular</Text>
@@ -273,7 +305,7 @@ export default function Subscription({ navigation, route }: secondProps) {
                             <Shadow radius={15} distance={10} paintInside={false} startColor="#0000000c">
                                 <Box w={screenWidth - 40} borderRadius="2xl" p="4" >
                                     <Heading fontWeight="600" size="sm">What you get</Heading>
-                                    <Text >{subscription.description}</Text>
+                                    <Text mt="5px">{subscription.description}</Text>
                                 </Box>
                             </Shadow>
                         </Box>
@@ -281,7 +313,7 @@ export default function Subscription({ navigation, route }: secondProps) {
                             <Shadow radius={15} distance={10} paintInside={false} startColor="#0000000c">
                                 <Box w={screenWidth - 40} borderRadius="2xl" p="4" >
                                     <Heading fontWeight="600" size="sm">Subscribe and save</Heading>
-                                    <Text>Save 10% of all your one time purchases by subscribing to {subscription.title}</Text>
+                                    <Text mt="5px">Save 10% of all your one time purchases by subscribing to {subscription.title}</Text>
                                 </Box>
                             </Shadow>
                         </Box>
@@ -310,11 +342,29 @@ export default function Subscription({ navigation, route }: secondProps) {
                         </Box>
                         <Box alignSelf="center" mt="20px" mb="20px" bg="white" borderRadius="2xl">
                             <Shadow radius={15} distance={10} paintInside={false} startColor="#0000000c">
-                                <Box w={screenWidth - 40} p="4" >
-                                    <Heading size="sm" fontWeight="600">Restrictions</Heading>
-                                    {subscription.dayConstrain ? <Text>Limited to 1 redemption per day</Text> : null}
-                                    <Text>Cannot be combined with other offers, promotions, sales, or coupons</Text>
-                                </Box>
+                                {customerSide?.status === 'incomplete' ?
+                                    <Box w={screenWidth - 40} p="4" >
+                                        <Heading size="sm" fontWeight="600" color="brand.800">Subscription Expired</Heading>
+                                        <Text mt="5px">Due to a failed payment, your subscription has expired and will be canceled on 
+                                        {" "+(new Date(customerSide.end.toDate().getTime()+ (7 * 24 * 60 * 60 * 1000))).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}. 
+                                        Renew your subscription to keep enjoying {subscription.title}.</Text>
+                                    </Box>
+                                    : open ?
+                                        <Box w={screenWidth - 40} p="4" >
+                                            <Heading size="sm" fontWeight="600">Restrictions</Heading>
+                                            <Box mt="5px">
+                                                {subscription.dayConstrain ? <Text>Limited to 1 redemption per day</Text> : null}
+                                                <Text>Cannot be combined with other offers, promotions, sales, or coupons</Text>
+                                            </Box>
+                                        </Box>
+                                        :
+                                        <Box w={screenWidth - 40} p="4" >
+                                            <Heading size="sm" fontWeight="600" color="brand.800">Store Closed</Heading>
+                                            <Box mt="5px">
+                                                <Text>{subscription.businessName} will be opening 
+                                                {((new Date()).getHours() * 100 + (new Date()).getMinutes()) < hours.open ? `at${open}` : " tomorrow" }</Text>
+                                            </Box>
+                                        </Box>}
                             </Shadow>
                         </Box>
                     </Box>
@@ -329,12 +379,12 @@ export default function Subscription({ navigation, route }: secondProps) {
                     <>
                         {(customerSide ? <TouchableOpacity onPress={() => {
                             open ?
-                                !isRedeeming ?
-                                    redeemedToday || subscription.limit - customerSide.redemptionCount < 1 || Math.round((customerSide.end.toDate().getTime() - (new Date()).getTime()) / (1000 * 3600 * 24)) <= -1 ?
-                                        null : setShowRedOverlay(true) : setShowCodeOverlay(true) : null
+                                !isRedeeming ? customerSide.status === "incomplete" ?
+                                    redeemedToday || subscription.limit - customerSide.redemptionCount < 1 ?
+                                        null : renewSubscription() : setShowRedOverlay(true) : setShowCodeOverlay(true) : null
                         }}>
                             <Flex borderRadius="10px" h="70px" align="center" justify="center" mx="20px" bg="black">
-                                <Text fontSize="15px" color="brand.500">{isRedeeming ? "Redemption Code" : Math.round((customerSide.end.toDate().getTime() - (new Date()).getTime()) / (1000 * 3600 * 24)) <= -1 ? "Subscription expired" : subscription.limit - customerSide.redemptionCount < 1 ? "Redemption limit reached" : redeemedToday ? "Daily limit reached" : open ? "Redeem" : "Store is Closed"}</Text>
+                                <Text fontSize="15px" color="brand.500">{isRedeeming ? "Redemption Code" : customerSide.status === "incomplete" ? "Renew Subscription" : subscription.limit - customerSide.redemptionCount < 1 ? "Redemption limit reached" : redeemedToday ? "Daily limit reached" : open ? "Redeem" : "Store is Closed"}</Text>
                             </Flex>
                         </TouchableOpacity> : null)}
                         {!isRedeeming ? <TouchableOpacity onPress={() => setShowCancelOverlay(true)}>
@@ -346,7 +396,7 @@ export default function Subscription({ navigation, route }: secondProps) {
                 }
                 <Box h="30px"></Box>
                 <RedOverlay subscription={subscription} redeem={redeem} showOverlay={showRedOverlay} setShowOverlay={setShowRedOverlay} onTimeChange={onTimeChange}
-                    requests={requests} setRequests={setRequests} date={date} error={error} loading={loading} delay={delay} outOfRange={outOfRange} orderAhead={orderAhead} setOrderAhead={setOrderAhead}/>
+                    requests={requests} setRequests={setRequests} date={date} error={error} loading={loading} delay={delay} outOfRange={outOfRange} orderAhead={orderAhead} setOrderAhead={setOrderAhead} />
                 <CodeOverlay code={code} showOverlay={showCodeOverlay} setShowOverlay={setShowCodeOverlay} />
                 <CancelOverlay cancel={cancelSubscription} showOverlay={showCancelOverlay} setShowOverlay={setShowCancelOverlay} loading={cancelling} redemptions={customerSide ? subscription.limit - customerSide.redemptionCount : 0}
                     days={customerSide ? Math.max(Math.round((customerSide.end.toDate().getTime() - (new Date()).getTime()) / (1000 * 3600 * 24)), 0) : 0} />
@@ -371,7 +421,7 @@ function CodeOverlay({ code, showOverlay, setShowOverlay }: any) {
     )
 }
 
-function RedOverlay({ subscription, redeem, showOverlay, setShowOverlay, onTimeChange, requests, setRequests, date, error, loading, delay,orderAhead,setOrderAhead }: any) {
+function RedOverlay({ subscription, redeem, showOverlay, setShowOverlay, onTimeChange, requests, setRequests, date, error, loading, delay, orderAhead, setOrderAhead }: any) {
 
     return (
         <Modal isOpen={showOverlay} onClose={() => setShowOverlay(false)}>
@@ -392,12 +442,12 @@ function RedOverlay({ subscription, redeem, showOverlay, setShowOverlay, onTimeC
                                 <>
                                     <Box>
                                         <Text >Ready By</Text>
-                                        <Text color="#959897">Min {parseInt(delay)+10} mins</Text>
+                                        <Text color="#959897">Min {parseInt(delay) + 10} mins</Text>
                                     </Box>
-                                    
+
                                     <Box marginTop="-40px" marginBottom="20px">
                                         <DateTimePicker testID="dateTimePicker" value={date} mode='time' is24Hour={true}
-                                            display="default" onChange={onTimeChange} minimumDate={new Date((new Date()).getTime() + (parseInt(delay)+10) * 60000)} />
+                                            display="default" onChange={onTimeChange} minimumDate={new Date((new Date()).getTime() + (parseInt(delay) + 10) * 60000)} />
                                     </Box>
                                 </> :
                                 <HStack justifyContent="space-between">

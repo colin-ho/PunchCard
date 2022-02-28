@@ -13,8 +13,8 @@ import Entypo from 'react-native-vector-icons/Entypo'
 import AntDesign from 'react-native-vector-icons/AntDesign'
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { Fave } from '../utils/Fave';
-import { convertAbsoluteToRem } from 'native-base/lib/typescript/theme/tools';
 import CheckoutScreen from './CheckoutScreen';
+import { UserDataContext, UserDataContextInterface } from '../providers/UserDataProvider';
 
 export type HomeStackParamList = {
     Feed: undefined;
@@ -41,7 +41,9 @@ export const HomeScreen = () => {
 type FeedProps = NativeStackScreenProps<HomeStackParamList, 'Feed'>;
 
 const Feed: React.FC<FeedProps> = ({ navigation }) => {
-    const { user, displayName, favorites, subscriptions, redeeming, subscribedTo } = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
+    const { user, } = useContext<AuthenticatedUserContextInterface>(AuthenticatedUserContext)
+    const {displayName, favorites, subscriptions, redeeming, subscribedTo } = useContext<UserDataContextInterface>(UserDataContext)
+
     const { businesses, refreshing, setRefreshing } = useContext<BusinessContextInterface>(BusinessContext)
     const [fanFavorites, setFanFavorites] = useState<FirebaseFirestoreTypes.DocumentData[]>([]);
     const [recommended, setRecommended] = useState<FirebaseFirestoreTypes.DocumentData | null>(null);
@@ -51,7 +53,7 @@ const Feed: React.FC<FeedProps> = ({ navigation }) => {
     }, []);
 
     const getFanFavorites = async () => {
-        const snapshot = await firestore().collection('subscriptions').where('published', '==', true).where('archived', '==', false).limit(10).get()
+        const snapshot = await firestore().collection('subscriptions').where('published', '==', true).where('archived', '==', false).orderBy('redemptionCount','desc').limit(10).get()
         const all = snapshot?.docs.map((doc) => doc.data());
         let temp = [];
         for (let i = 0; i < all.length; i++) {
@@ -91,44 +93,39 @@ const Feed: React.FC<FeedProps> = ({ navigation }) => {
                 <Flex flexDirection="column" px="20px" pt="20px">
                     <Text>{(new Date).toLocaleDateString("en-US", { weekday: 'long', month: 'long', day: 'numeric' })}</Text>
                     <Heading fontSize="28px" fontWeight="600">{displayName ? "Welcome back " + displayName.substr(0, displayName.indexOf(' ')) : "Start punching ->"}</Heading>
-                    {businesses ? user ?
+                    {businesses && businesses.length > 0 ?
                         <>
                             <Heading size="md" fontWeight="500" mt="20px">{redeeming && redeeming.length > 0 ? "Active Redemptions" : "Recommended for you"}</Heading>
                             {redeeming && subscriptions && redeeming.length > 0 ?
-                                redeeming.map((red: any) => {
-                                    let sub: any = subscriptions.filter((sub: any) => red.subscriptionId === sub.id)[0]
+                                redeeming.map((red) => {
+                                    let sub = subscriptions.filter((sub) => red.subscriptionId === sub.id)[0]
                                     if (sub)
                                         return (
                                             <TouchableOpacity key={red.id} activeOpacity={1} onPress={() => navigation.navigate('Subscription', { subscription: sub })}>
-                                                <ActiveItem redemption={red} address={businesses.filter((business: any) => business.uid === sub.businessId)[0].address} subscription={sub} />
+                                                <ActiveItem redemption={red} address={businesses.filter((business) => business.uid === sub.businessId)[0].address} subscription={sub} />
                                             </TouchableOpacity>)
                                 })
                                 : recommended ?
                                     <TouchableOpacity activeOpacity={1} onPress={() => navigation.navigate('Subscription', { subscription: recommended })}>
                                         <RecommendedItem subscription={recommended} user={user} isFavorite={favorites ? favorites.includes(recommended.id) : false} />
                                     </TouchableOpacity>
-                                    : fanFavorites.length > 0 ?
-                                        <TouchableOpacity activeOpacity={1} onPress={() => navigation.navigate('Subscription', { subscription: fanFavorites[1] })}>
-                                            <RecommendedItem subscription={fanFavorites[1]} user={user} isFavorite={favorites ? favorites.includes(fanFavorites[1].id) : false} />
+                                    : 
+                                        <TouchableOpacity activeOpacity={1} onPress={() => navigation.navigate('Shop', { business: businesses[0] })}>
+                                            <TopItem business={businesses[0]} />
                                         </TouchableOpacity>
-                                        : null}
+                                    }
                         </>
                         :
-                        <>
-                            {businesses && businesses.length > 0 ? <Heading size="md" fontWeight="500" mt="20px">Featured Store</Heading> : null}
-                            <TouchableOpacity activeOpacity={1} onPress={() => navigation.navigate('Shop', { business: businesses[0] })}>
-                                <TopItem business={businesses[0]} />
-                            </TouchableOpacity>
-                        </> : null}
+                         null}
                     <Heading size="md" fontWeight="500" mt="20px">Fan favorites</Heading>
                 </Flex>
-                {businesses ?
+                {businesses&& businesses.length > 0 ?
                     <Box mt="10px">
-                        <FlatList initialNumToRender={5} pb="20px" showsHorizontalScrollIndicator={false} horizontal={true} data={recommended ? fanFavorites.filter((fav: any) => fav.id != recommended.id) : fanFavorites} renderItem={({ item }) =>
+                        <FlatList initialNumToRender={5} pb="20px" showsHorizontalScrollIndicator={false} horizontal={true} data={recommended ? fanFavorites.filter((fav) => fav.id != recommended.id) : fanFavorites} renderItem={({ item }) =>
                             <TouchableOpacity activeOpacity={1} onPress={() => navigation.navigate('Subscription', { subscription: item })}>
                                 <SubscriptionItem subscription={item} user={user} isFavorite={favorites ? favorites.includes(item.id) : false} />
                             </TouchableOpacity>
-                        } keyExtractor={(item: any) => item.id} />
+                        } keyExtractor={(item) => item.id} />
                     </Box>
                     : null}
             </ScrollView>
@@ -164,10 +161,10 @@ const ActiveItem: React.FC<ActiveItemInterface> = ({ subscription, redemption, a
                                     <Text color="#959897">{redemption.collectBy.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
                                 </HStack>
                                 :
-                                    <HStack mt="10px" >
-                                        <Text flex="1">Estimated pick-up time:</Text>
-                                        <Text color="#959897">{redemption.ready ? "Ready now" : redemption.collectBy.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-                                    </HStack>
+                                <HStack mt="10px" >
+                                    <Text flex="1">Estimated pick-up time:</Text>
+                                    <Text color="#959897">{redemption.ready ? "Ready now" : redemption.collectBy.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                                </HStack>
                             }
 
                             <HStack mt="20px" pr="10px" space="3">
@@ -200,7 +197,7 @@ const SubscriptionItem: React.FC<SubscriptionItemInterface> = ({ subscription, u
                             <Image w="2xs" h="150px" key={subscription.id} resizeMode="cover" src={subscription.photoURL} alt="Upload an image" />
                         </Box>
                         <Flex h="xs" flexDirection="column" p="6" bg="white">
-                            <HStack mb="5px" space="3">
+                            <HStack mb="5px" space="3" >
                                 {subscription.redemptionCount > 2 ?
                                     <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg="brand.100">
                                         <Text fontSize="12px" color="black">Popular</Text>
@@ -225,7 +222,7 @@ interface RecommendedItemInterface {
     isFavorite: boolean
 }
 
-const RecommendedItem: React.FC<RecommendedItemInterface> = ({ subscription, user, isFavorite }) => {
+const RecommendedItem: React.FC<RecommendedItemInterface> = ({ subscription, user, isFavorite,}) => {
     return (
         subscription ?
             <Box alignSelf="center" mt="20px" borderRadius="2xl">
@@ -273,6 +270,13 @@ const TopItem = ({ business }: FirebaseFirestoreTypes.DocumentData) => {
                                 <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg="brand.300">
                                     <Text fontSize="12px" color="black">{business.businessType.charAt(0).toUpperCase() + business.businessType.slice(1)}</Text>
                                 </Flex>
+                                {business.tags.map((tag: string) => {
+                                    return (
+                                        <Flex borderRadius="5px" px="10px" py="5px" align="center" justify="center" bg="brand.300" key={tag}>
+                                            <Text fontSize="12px" color="black">{tag.charAt(0).toUpperCase() + tag.slice(1)}</Text>
+                                        </Flex>
+                                    )
+                                })}
                             </HStack>
                             <Heading fontWeight="600" mt="10px" size="sm">{business.businessName}</Heading>
                             <Text fontSize="sm">{business.description}</Text>
