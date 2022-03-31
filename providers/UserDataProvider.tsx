@@ -33,7 +33,7 @@ export const UserDataProvider: React.FC<React.ReactNode> = ({ children }) => {
             setSubscriptions(data);
         }else{
             setSubscriptions([]);
-        }
+        } 
     }
 
     const handleUserChanges = (snapshot: FirebaseFirestoreTypes.DocumentSnapshot) => {
@@ -50,7 +50,7 @@ export const UserDataProvider: React.FC<React.ReactNode> = ({ children }) => {
     useEffect(() => {
         let subListener: ()=>void, userListener: ()=>void, redemptionListener:()=>void;
         if (user) {
-            const subscribedToQuery = firestore().collection('subscribedTo').where('customerId','==',user.uid).where('status','!=','canceled') 
+            const subscribedToQuery = firestore().collection('subscribedTo').where('customerId','==',user.uid)
             subListener = subscribedToQuery.onSnapshot(handleSubscriptionChanges, err => console.log("subListener: ",err));
 
             const userQuery = firestore().collection('customers').doc(user.uid);

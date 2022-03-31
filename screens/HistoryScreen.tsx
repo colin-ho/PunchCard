@@ -20,7 +20,7 @@ export const HistoryScreen: React.FC<HistoryProps> = ({ navigation }) => {
     const [select, setSelected] = useState('subscriptions')
 
     const getHistory = async () => {
-        const subQuery = firestore().collection('subscribedTo').where('customerId','==',user?.uid).orderBy('boughtAt','desc').limit(10)
+        const subQuery = firestore().collection('payments').where('customerId','==',user?.uid).orderBy('date','desc').limit(10)
 
         const redQuery = firestore().collection('redemptions').where('redeemedById','==',user?.uid).where('collected','==',true).orderBy('redeemedAt','desc').limit(10)
         
@@ -46,8 +46,8 @@ export const HistoryScreen: React.FC<HistoryProps> = ({ navigation }) => {
     }
 
     const getMoreSubHistory = async () => {
-        const subQuery = firestore().collection('subscribedTo').where('customerId','==',user?.uid)
-        .orderBy('boughtAt','desc').limit(10).startAfter(lastSub)
+        const subQuery = firestore().collection('payments').where('customerId','==',user?.uid)
+        .orderBy('date','desc').limit(10).startAfter(lastSub)
 
         let tempSubs: FirebaseFirestoreTypes.DocumentData[] = [];
 
@@ -108,11 +108,15 @@ export const HistoryScreen: React.FC<HistoryProps> = ({ navigation }) => {
                         <Box bg="brand" borderRadius="2xl" mt="5" mb="5" mx="5">
                             <Shadow radius={20} distance={10} paintInside={false} startColor="#0000000c">
                                 <VStack w="full" space="2" p="4" >
-                                    <Text>{(item.boughtAt).toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</Text>
+                                    <Text>{(item.date).toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</Text>
                                     <Heading fontWeight="600" size="sm">{item.subscriptionTitle} from {item.businessName}</Heading>
                                     <HStack w="full">
-                                        <Text flex="1">Total</Text>
-                                        <Text>${item.amountPaid}</Text>
+                                        <Text flex="1">Payment reason:</Text>
+                                        <Text color="#959897">{item.reason === 'subscription_create' ? "Subscription purchase" : "Subscription renewal"}</Text>
+                                    </HStack>
+                                    <HStack w="full">
+                                        <Text flex="1">Total:</Text>
+                                        <Text color="#959897">${item.amountPaid}</Text>
                                     </HStack>
                                 </VStack>
                             </Shadow>

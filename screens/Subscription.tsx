@@ -206,7 +206,7 @@ export default function Subscription({ navigation, route }: secondProps) {
                 redeemedAt: firestore.FieldValue.serverTimestamp(), businessId: subscription.businessId, id: redemptionRef.id, code: makeCode(),
                 businessName: subscription.businessName, subscriptionTitle: subscription.title, orderAhead: orderAhead, ready: false
             });
-            batch.set(subscribedToRef, { redemptionCount: firestore.FieldValue.increment(1), lastRedeemed: firestore.FieldValue.serverTimestamp() }, { merge: true });
+            batch.update(subscribedToRef, { redemptionCount: firestore.FieldValue.increment(1), lastRedeemed: firestore.FieldValue.serverTimestamp() });
             await batch.commit();
 
             setShowRedOverlay(false);
@@ -241,8 +241,10 @@ export default function Subscription({ navigation, route }: secondProps) {
     };
 
     const renewSubscription = async () => {
+
         if (user && customerSide) {
             try {
+                setLoading(true);
                 const subCreateRes = await axios.post('https://lavalab.vercel.app/api/retrievePayment', {
                     paymentIntentId: customerSide.paymentIntentId
                 })
@@ -261,9 +263,11 @@ export default function Subscription({ navigation, route }: secondProps) {
                 });
                 if (!error) {
                     await openPaymentSheet()
+                    setLoading(false);
                 } else throw error;
 
             } catch (err) {
+                setLoading(false);
                 console.log(err)
             }
         }
@@ -345,9 +349,9 @@ export default function Subscription({ navigation, route }: secondProps) {
                                 {customerSide?.status === 'incomplete' ?
                                     <Box w={screenWidth - 40} p="4" >
                                         <Heading size="sm" fontWeight="600" color="brand.800">Subscription Expired</Heading>
-                                        <Text mt="5px">Due to a failed payment, your subscription has expired and will be canceled on 
-                                        {" "+(new Date(customerSide.end.toDate().getTime()+ (7 * 24 * 60 * 60 * 1000))).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}. 
-                                        Renew your subscription to keep enjoying {subscription.title}.</Text>
+                                        <Text mt="5px">Due to a failed payment, your subscription has expired and will be canceled on
+                                            {" " + (new Date(customerSide.end.toDate().getTime() + (7 * 24 * 60 * 60 * 1000))).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}.
+                                            Renew your subscription to keep enjoying {subscription.title}.</Text>
                                     </Box>
                                     : open ?
                                         <Box w={screenWidth - 40} p="4" >
@@ -361,8 +365,8 @@ export default function Subscription({ navigation, route }: secondProps) {
                                         <Box w={screenWidth - 40} p="4" >
                                             <Heading size="sm" fontWeight="600" color="brand.800">Store Closed</Heading>
                                             <Box mt="5px">
-                                                <Text>{subscription.businessName} will be opening 
-                                                {((new Date()).getHours() * 100 + (new Date()).getMinutes()) < hours.open ? `at${open}` : " tomorrow" }</Text>
+                                                <Text>{subscription.businessName} will be opening
+                                                    {((new Date()).getHours() * 100 + (new Date()).getMinutes()) < hours.open ? `at${open}` : " tomorrow"}</Text>
                                             </Box>
                                         </Box>}
                             </Shadow>
@@ -378,13 +382,15 @@ export default function Subscription({ navigation, route }: secondProps) {
                     :
                     <>
                         {(customerSide ? <TouchableOpacity onPress={() => {
-                            open ?
-                                !isRedeeming ? customerSide.status === "incomplete" ?
-                                    redeemedToday || subscription.limit - customerSide.redemptionCount < 1 ?
-                                        null : renewSubscription() : setShowRedOverlay(true) : setShowCodeOverlay(true) : null
+                            customerSide.status === "incomplete" ? renewSubscription() :
+                                open ?
+                                    !isRedeeming ? redeemedToday || subscription.limit - customerSide.redemptionCount < 1 ?
+                                        null : setShowRedOverlay(true) : setShowCodeOverlay(true) : null
                         }}>
                             <Flex borderRadius="10px" h="70px" align="center" justify="center" mx="20px" bg="black">
-                                <Text fontSize="15px" color="brand.500">{isRedeeming ? "Redemption Code" : customerSide.status === "incomplete" ? "Renew Subscription" : subscription.limit - customerSide.redemptionCount < 1 ? "Redemption limit reached" : redeemedToday ? "Daily limit reached" : open ? "Redeem" : "Store is Closed"}</Text>
+                                <Button disabled variant="unstyled" _loading={{ bg: "black" }} _spinner={{ color: "white" }} isLoading={loading}>
+                                    <Text fontSize="15px" color="brand.500">{isRedeeming ? "Redemption Code" : customerSide.status === "incomplete" ? "Renew Subscription" : subscription.limit - customerSide.redemptionCount < 1 ? "Redemption limit reached" : redeemedToday ? "Daily limit reached" : open ? "Redeem" : "Store is Closed"}</Text>
+                                </Button>
                             </Flex>
                         </TouchableOpacity> : null)}
                         {!isRedeeming ? <TouchableOpacity onPress={() => setShowCancelOverlay(true)}>
