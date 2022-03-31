@@ -29,7 +29,7 @@ Think 5 coffees per week for the price of 3.
   - **Redeem**: Redeem your subscriptions on the app to place orders directly to merchants without any hassle in just two clicks. 
 
 <p align="center">
-<img src="assets/PC1.png" style="width:30%;margin-left:auto" alt="img1" >   &emsp14;&emsp14;&emsp14;&emsp14;
+<img src="assets/PC2.png" style="width:30%;margin-left:auto" alt="img1" >   &emsp14;&emsp14;&emsp14;&emsp14;
   &emsp14;&emsp14;&emsp14;&emsp14;&emsp14;&emsp14;&emsp14;&emsp14;
   <img src="assets/PC3.png" style="width:30%;margin-left:auto" alt="img1" >
 </p>
